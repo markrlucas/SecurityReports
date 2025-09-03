@@ -1,0 +1,9 @@
+let
+    ODataSource = OData.Feed("https://api.security.microsoft.com/api/machines", null, [Implementation="2.0", MoreColumns=true]),
+    AddOnboardedDate = Table.AddColumn(ODataSource, "OnboardedDate", each try [firstSeen] otherwise null),
+    ChangeType = Table.TransformColumnTypes(AddOnboardedDate, {{"OnboardedDate", type date}}),
+    ExtractedText = if Table.HasColumns(ChangeType, "computerDnsName") 
+                    then Table.TransformColumns(ChangeType, {{"computerDnsName", each Text.BeforeDelimiter(_, "."), type text}})
+                    else ChangeType
+in
+    ExtractedText

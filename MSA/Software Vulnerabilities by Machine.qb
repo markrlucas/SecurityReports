@@ -1,0 +1,49 @@
+let
+    // Function to fetch one page of 800 rows, with a 1-second delay
+    GetPage = (skip as number) as table =>
+        let
+            url = "https://api.security.microsoft.com/api/Machines/SoftwareVulnerabilitiesByMachine?$top=800&$skip=" & Number.ToText(skip),
+            delayedFetch = Function.InvokeAfter(
+                () => try OData.Feed(url, null, [Implementation="2.0", MoreColumns=true]) otherwise #table({}, {}),
+                #duration(0, 0, 0, 1)   // 1 second delay
+            )
+        in
+            delayedFetch,
+
+    // Generate pages until we get an empty table
+    PageSkips = List.Generate(
+        () => [Skip = 0, Data = GetPage(0)],              // initial state
+        each Table.RowCount([Data]) > 0,                  // continue while not empty
+        each [Skip = [Skip] + 800, Data = GetPage([Skip])], // next page
+        each [Data]                                       // output only the data
+    ),
+
+    // Combine all pages
+    Combined = Table.Combine(PageSkips),
+
+    // Change type only if columns exist
+    ChangeType = Table.TransformColumnTypes(
+        Combined,
+        List.Intersect({
+            Table.ColumnNames(Combined),
+            {{"firstSeenTimestamp", type datetime}, {"lastSeenTimestamp", type datetime}}
+        })
+    ),
+
+    // Map severity levels in one step
+    SeverityMap = Table.TransformColumns(
+        ChangeType,
+        {{"vulnerabilitySeverityLevel", each 
+            if _ = "Critical" then "1 - Critical" 
+            else if _ = "High" then "2 - High" 
+            else if _ = "Medium" then "3 - Medium" 
+            else if _ = "Low" then "4 - Low" 
+            else _, type text}}
+    ),
+
+    // Extract device short name only if column exists
+    CleanDeviceName = if Table.HasColumns(SeverityMap, "deviceName") 
+                      then Table.TransformColumns(SeverityMap, {{"deviceName", each Text.BeforeDelimiter(_, "."), type text}})
+                      else SeverityMap
+in
+    CleanDeviceName

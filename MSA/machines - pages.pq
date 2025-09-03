@@ -1,8 +1,8 @@
 let
-    // Function to fetch one page of 300 rows, with a 1-second delay
+    // Function to fetch one page of 800 rows, with a 1-second delay
     GetPage = (skip as number) as table =>
         let
-            url = "https://api.security.microsoft.com/api/machines?$top=300&$skip=" & Number.ToText(skip),
+            url = "https://api.security.microsoft.com/api/machines?$top=800&$skip=" & Number.ToText(skip),
             delayedFetch = Function.InvokeAfter(
                 () => try OData.Feed(url, null, [Implementation="2.0", MoreColumns=true]) otherwise #table({}, {}),
                 #duration(0, 0, 0, 1)   // 1 second delay
@@ -14,7 +14,7 @@ let
     PageSkips = List.Generate(
         () => [Skip = 0, Data = GetPage(0)],                     // initial state
         each Table.RowCount([Data]) > 0,                         // keep going while table not empty
-        each [Skip = [Skip] + 300, Data = GetPage([Skip])],      // next page
+        each [Skip = [Skip] + 800, Data = GetPage([Skip])],      // next page
         each [Data]                                              // output only the data
     ),
 
